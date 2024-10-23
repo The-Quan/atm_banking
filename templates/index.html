@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banking App</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Banking Application</h1>
+        <div id="messages"></div>
+
+        <h2>Check Balance</h2>
+        <form id="balance-form">
+            <input type="number" name="account_id" placeholder="Account ID" required>
+            <button type="submit">Check Balance</button>
+        </form>
+
+        <h2>Deposit Money</h2>
+        <form id="deposit-form">
+            <input type="number" name="account_id" placeholder="Account ID" required>
+            <input type="number" name="amount" placeholder="Amount" required>
+            <button type="submit">Deposit</button>
+        </form>
+
+        <h2>Withdraw Money</h2>
+        <form id="withdraw-form">
+            <input type="number" name="account_id" placeholder="Account ID" required>
+            <input type="number" name="amount" placeholder="Amount" required>
+            <button type="submit">Withdraw</button>
+        </form>
+
+        <h2>Transfer Money</h2>
+        <form id="transfer-form">
+            <input type="number" name="sender_id" placeholder="Sender Account ID" required>
+            <input type="number" name="receiver_id" placeholder="Receiver Account ID" required>
+            <input type="number" name="amount" placeholder="Amount" required>
+            <button type="submit">Transfer</button>
+        </form>
+
+        <h2>Transaction History</h2>
+        <form id="history-form">
+            <input type="number" name="account_id" placeholder="Account ID" required>
+            <button type="submit">Get Transaction History</button>
+        </form>
+
+        <h2>User Registration</h2>
+        <form id="register-form">
+            <input type="text" name="name" placeholder="Name" required>
+            <input type="email" name="email" placeholder="Email" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit">Register</button>
+        </form>
+
+        <h2>User Login</h2>
+        <form id="login-form">
+            <input type="email" name="email" placeholder="Email" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit">Login</button>
+        </form>
+
+        <h2>Change Password</h2>
+        <form id="change-password-form">
+            <input type="text" name="user_id" placeholder="User ID" required>
+            <input type="password" name="old_password" placeholder="Old Password" required>
+            <input type="password" name="new_password" placeholder="New Password" required>
+            <button type="submit">Change Password</button>
+        </form>
+    </div>
+
+    <script>
+        // Check balance
+        $("#balance-form").on("submit", function (e) {
+            e.preventDefault();
+            let account_id = $(this).find('input[name="account_id"]').val();
+
+            $.ajax({
+                url: `/balance/${account_id}`,
+                type: "GET",
+                success: function (data) {
+                    $("#messages").html(`<div class="alert alert-success">Balance: ${data.balance}</div>`);
+                },
+                error: function (jqXHR) {
+                    $("#messages").html(`<div class="alert alert-danger">${jqXHR.responseJSON.error}</div>`);
+                }
+            });
+        });
+
+        // Deposit
+        $("#deposit-form").on("submit", function (e) {
+            e.preventDefault();
+            let account_id = $(this).find('input[name="account_id"]').val();
+            let amount = $(this).find('input[name="amount"]').val();
+
+            $.ajax({
+                url: "/deposit",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ account_id: account_id, amount: amount }),
+                success: function (data) {
+                    $("#messages").html(`<div class="alert alert-success">${data.message}</div>`);
+                },
+                error: function (jqXHR) {
+                    $("#messages").html(`<div class="alert alert-danger">${jqXHR.responseJSON.message}</div>`);
+                }
+            });
+        });
+
+        // Withdraw
+        $("#withdraw-form").on("submit", function (e) {
+            e.preventDefault();
+            let account_id = $(this).find('input[name="account_id"]').val();
+            let amount = $(this).find('input[name="amount"]').val();
+
+            $.ajax({
+                url: "/withdraw",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ account_id: account_id, amount: amount }),
+                success: function (data) {
+                    $("#messages").html(`<div class="alert alert-success">${data.message} - New Balance: ${data.new_balance}</div>`);
+                },
+                error: function (jqXHR) {
+                    $("#messages").html(`<div class="alert alert-danger">${jqXHR.responseJSON.message}</div>`);
+                }
+            });
+        });
+
+        // Transfer
+        $("#transfer-form").on("submit", function (e) {
+            e.preventDefault();
+            let sender_id = $(this).find('input[name="sender_id"]').val();
+            let receiver_id = $(this).find('input[name="receiver_id"]').val();
+            let amount = $(this).find('input[name="amount"]').val();
+
+            $.ajax({
+                url: "/transfer",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ sender_id: sender_id, receiver_id: receiver_id, amount: amount }),
+                success: function (data) {
+                    $("#messages").html(`<div class="alert alert-success">${data.message}</div>`);
+                },
+                error: function (jqXHR) {
+                    $("#messages").html(`<div class="alert alert-danger">${jqXHR.responseJSON.message}</div>`);
+                }
+            });
+        });
+
+        // Transaction History
+        $("#history-form").on("submit", function (e) {
+            e.preventDefault();
+            let account_id = $(this).find('input[name="account_id"]').val();
+
+            $.ajax({
+                url: `/transactions/${account_id}`,
+                type: "GET",
+                success: function (data) {
+                    let historyHtml = "<ul>";
+                    data.forEach(transaction => {
+                        historyHtml += `<li>${transaction.date}: ${transaction.transaction_type} of ${transaction.amount}</li>`;
+                    });
+                    historyHtml += "</ul>";
+                    $("#messages").html(`<div class="alert alert-success">Transaction History: ${historyHtml}</div>`);
+                },
+                error: function (jqXHR) {
+                    $("#messages").html(`<div class="alert alert-danger">${jqXHR.responseJSON.error}</div>`);
+                }
+            });
+        });
+
+        // Register User
+        $("#register-form").on("submit", function (e) {
+            e.preventDefault();
+            let name = $(this).find('input[name="name"]').val();
+            let email = $(this).find('input[name="email"]').val();
+            let password = $(this).find('input[name="password"]').val();
+
+            $.ajax({
+                url: "/register",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ name: name, email: email, password: password }),
+                success: function (data) {
+                    $("#messages").html(`<div class="alert alert-success">${data.message}</div>`);
+                },
+                error: function (jqXHR) {
+                    $("#messages").html(`<div class="alert alert-danger">${jqXHR.responseJSON.message}</div>`);
+                }
+            });
+        });
+
+        // User Login
+        $("#login-form").on("submit", function (e) {
+            e.preventDefault();
+            let email = $(this).find('input[name="email"]').val();
+            let password = $(this).find('input[name="password"]').val();
+
+            $.ajax({
+                url: "/login",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ email: email, password: password }),
+                success: function (data) {
+                    $("#messages").html(`<div class="alert alert-success">Login successful! Token: ${data.token}</div>`);
+                },
+                error: function (jqXHR) {
+                    $("#messages").html(`<div class="alert alert-danger">${jqXHR.responseJSON.message}</div>`);
+                }
+            });
+        });
+
+        // Change Password
+        $("#change-password-form").on("submit", function (e) {
+            e.preventDefault();
+            let user_id = $(this).find('input[name="user_id"]').val();
+            let old_password = $(this).find('input[name="old_password"]').val();
+            let new_password = $(this).find('input[name="new_password"]').val();
+
+            $.ajax({
+                url: "/change-password",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ user_id: user_id, old_password: old_password, new_password: new_password }),
+                success: function (data) {
+                    $("#messages").html(`<div class="alert alert-success">${data.message}</div>`);
+                },
+                error: function (jqXHR) {
+                    $("#messages").html(`<div class="alert alert-danger">${jqXHR.responseJSON.message}</div>`);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
