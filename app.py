@@ -6,6 +6,7 @@ import datetime
 from flask_mail import Mail, Message
 from decimal import Decimal, InvalidOperation
 from flask_cors import CORS
+from functools import wraps
 
 
 
@@ -21,7 +22,40 @@ CORS(app)
 def home():
     return render_template('index.html')
 
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({"message": "Token is missing!"}), 403
+        
+        try:
+            token = token.split(" ")[1]  # Token is expected as "Bearer <token>"
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            current_user_id = data['account_id']
+        except Exception as e:
+            return jsonify({"message": "Token is invalid!"}), 403
+        
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route('/user/<int:user_id>', methods=['GET'])
+@token_required
+def get_user(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM users WHERE id= %s", (user_id,))
+    account = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    
+    if account:
+        return jsonify(account)
+    return jsonify({"error": "Account not found"}), 404
+
+
 @app.route('/balance/<int:account_id>', methods=['GET'])
+@token_required
 def get_balance(account_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -36,7 +70,8 @@ def get_balance(account_id):
 
 # API for deposit (nạp tiền)
 @app.route('/deposit', methods=['POST'])
-def deposit():
+@token_required
+def deposit(*args, **kwargs):
     data = request.json
     account_id = data['account_id']
     amount = data['amount']
@@ -54,6 +89,7 @@ def deposit():
 
 # API for withdrawal (rút tiền)
 @app.route('/withdraw', methods=['POST'])
+@token_required
 def withdraw():
     data = request.json
     account_id = data['account_id']
@@ -88,6 +124,7 @@ def withdraw():
 
 # API cho lịch sử giao dịch
 @app.route('/transactions/<int:account_id>', methods=['GET'])
+@token_required
 def get_transaction_history(account_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -102,6 +139,7 @@ def get_transaction_history(account_id):
 
 
 @app.route('/transfer', methods=['POST'])
+@token_required
 def transfer():
     data = request.json
     sender_id = data['sender_id']
@@ -192,12 +230,13 @@ def login():
         account = cursor.fetchone()
         
         token = jwt.encode({
-            'user_id': user['id'], 
+            'account_id': account['account_id'],  
+            'user_id': user['id'],
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
         }, SECRET_KEY)
         
         # Trả về token và thông tin tài khoản
-        return jsonify({"token": token, "account": account}), 200
+        return jsonify({"token": token}), 200
     
     cursor.close()
     conn.close()

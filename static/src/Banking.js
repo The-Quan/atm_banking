@@ -1,33 +1,61 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './Banking.css';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';  // Import jwtDecode
+
 
 const App = () => {
-    const userId = localStorage.getItem('userId');
+    const token = localStorage.getItem('authToken');
+    const decoded = jwtDecode(token);
+    const user_id = decoded.user_id
+    const accountId = decoded.account_id
 
     const [messages, setMessages] = useState('');
     const [formData, setFormData] = useState({
-        balanceId: userId,
-        deposit: { account_id: userId, amount: '' },
-        withdraw: { account_id: userId, amount: '' },
-        transfer: { sender_id: userId, receiver_id: '', amount: '' },
+        balanceId: accountId,
+        deposit: { account_id: accountId, amount: '' },
+        withdraw: { account_id: accountId, amount: '' },
+        transfer: { sender_id: accountId, receiver_id: '', amount: '' },
         historyId: '',
         changePassword: { user_id: '', old_password: '', new_password: '' },
     });
-    const [transactionHistory, setTransactionHistory] = useState([]); // New state for transaction history
+    const [transactionHistory, setTransactionHistory] = useState([]);
+    const [userData, setUserData] = useState(null);
 
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await axios.get(`http://127.0.0.1:5000/user/${user_id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                setUserData(response.data);
+            } catch (error) {
+                console.error("Error fetching user data:", error);
+            }
+        };
+        fetchData();
+    }, []);
 
     const handleSubmitGet = async (e, endpoint, data, resetFields = () => { }) => {
         e.preventDefault();
         try {
-            const response = await axios.get(`http://127.0.0.1:5000/${endpoint}`, { params: data });
+            const response = await axios.get(`http://127.0.0.1:5000/${endpoint}`, {
+                params: data,
+                headers: {
+                    'Authorization': `Bearer ${token}` // Add token to headers
+                }
+            });
 
             const formattedBalance = new Intl.NumberFormat('vi-VN', {
                 style: 'decimal',
-                minimumFractionDigits: 0, // Để không hiển thị số lẻ
-                maximumFractionDigits: 0, // Để không hiển thị số lẻ
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
             }).format(response.data.balance);
 
             setMessages(<div className="alert alert-success">{formattedBalance}</div>);
@@ -40,7 +68,12 @@ const App = () => {
     const handleSubmit = async (e, endpoint, data, resetFields = () => { }) => {
         e.preventDefault();
         try {
-            const response = await axios.post(`http://127.0.0.1:5000${endpoint}`, data);
+            const response = await axios.post(`http://127.0.0.1:5000${endpoint}`, data, {
+                headers: {
+                    'Authorization': `Bearer ${token}` // Add token to headers for POST
+                }
+            });
+
             let successMessage;
             switch (endpoint) {
                 case '/deposit':
@@ -62,8 +95,9 @@ const App = () => {
         }
     };
 
-    const formatNumber = (num) => {
-        return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const logout = () => {
+        localStorage.removeItem('authToken')
+        navigate('/logout')
     };
 
     const handleChange = (e, key, nestedKey) => {
@@ -74,12 +108,15 @@ const App = () => {
         }
     };
 
-    // Function to fetch transaction history
     const fetchTransactionHistory = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.get(`http://127.0.0.1:5000/transactions/${userId}`);
-            setTransactionHistory(response.data); // Store transaction history
+            const response = await axios.get(`http://127.0.0.1:5000/transactions/${accountId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}` // Add token to headers for GET
+                }
+            });
+            setTransactionHistory(response.data);
             setMessages(<div className="alert alert-success">Transaction history fetched successfully!</div>);
         } catch (error) {
             setMessages(<div className="alert alert-danger">{error.response?.data?.message || 'An error occurred'}</div>);
@@ -88,17 +125,16 @@ const App = () => {
 
     return (
         <div className="container mt-5">
-            <Link to='/logout'>Log Out</Link>
+            <h3>Hi, {userData?.name || "User"}</h3>
+            <button onClick={logout} >Log Out</button>
             <h1 className="text-center">Banking Application</h1>
             <div id="messages">{messages}</div>
 
-            {/* Check Balance */}
             <h2>Check Balance</h2>
             <form onSubmit={(e) => handleSubmitGet(e, `balance/${formData.balanceId}`, {})}>
                 <button type="submit">Check Balance</button>
             </form>
 
-            {/* Deposit Money */}
             <h2>Deposit Money</h2>
             <form onSubmit={(e) => handleSubmit(e, '/deposit', formData.deposit, () => setFormData({ ...formData, deposit: { amount: '' } }))}>
                 <input
@@ -111,7 +147,6 @@ const App = () => {
                 <button type="submit">Deposit</button>
             </form>
 
-            {/* Withdraw Money */}
             <h2>Withdraw Money</h2>
             <form onSubmit={(e) => handleSubmit(e, '/withdraw', formData.withdraw, () => setFormData({ ...formData, withdraw: { amount: '' } }))}>
                 <input
@@ -124,7 +159,6 @@ const App = () => {
                 <button type="submit">Withdraw</button>
             </form>
 
-            {/* Transfer Money */}
             <h2>Transfer Money</h2>
             <form onSubmit={(e) => handleSubmit(e, '/transfer', formData.transfer, () => setFormData({ ...formData, transfer: { receiver_id: '', amount: '' } }))}>
                 <input
@@ -144,13 +178,11 @@ const App = () => {
                 <button type="submit">Transfer</button>
             </form>
 
-            {/* Transaction History */}
             <h2>Transaction History</h2>
             <form onSubmit={fetchTransactionHistory}>
                 <button type="submit">Get Transaction History</button>
             </form>
 
-            {/* Display Transaction History */}
             {transactionHistory.length > 0 && (
                 <div className="mt-4">
                     <h3>Transaction History Details</h3>

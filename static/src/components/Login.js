@@ -12,8 +12,6 @@ const Login = () => {
         try {
             const data = await axios.post(`http://127.0.0.1:5000/login`, loginData);
             const token = data.data;
-            const userId = data.data.account.account_id; // Giả sử userId được lưu trong token
-            localStorage.setItem('userId', userId);
             localStorage.setItem('authToken', token.token);
             navigate('/banking');
         } catch (error) {
